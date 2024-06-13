@@ -1,6 +1,7 @@
 require 'spec_helper'
 require 'support/activerecord'
 
+
 def create_table(name)
   ActiveRecord::Base.connection.create_table(name, force: true) do |t|
     t.column :image, :string
@@ -17,7 +18,18 @@ end
 
 def reset_class(class_name)
   Object.send(:remove_const, class_name) rescue nil
-  Object.const_set(class_name, Class.new(ActiveRecord::Base))
+  klass = Object.const_set(class_name, Class.new(ActiveRecord::Base))
+  # TODO Remove when Rails 5.2 is dropped
+  klass.class_eval do
+    if Rails::VERSION::MAJOR >= 5
+      attribute :images, :json
+      attribute :textfiles, :json
+    else
+      serialize :images, JSON
+      serialize :textfiles, JSON
+    end
+  end
+  klass
 end
 
 describe CarrierWave::ActiveRecord do
@@ -1174,7 +1186,7 @@ describe CarrierWave::ActiveRecord do
       end
 
       it "should mark images as changed when saving a new images" do
-        expect(@event.images_changed?).to be_falsey
+        expect(@event.images_changed?).to be_falsey if ActiveRecord::VERSION::MAJOR > 4 || ActiveRecord::VERSION::MINOR > 1
         @event.images = [stub_file("test.jpeg")]
         expect(@event.images_changed?).to be_truthy
         @event.save
@@ -1206,7 +1218,7 @@ describe CarrierWave::ActiveRecord do
 
     describe "remove_images=" do
       it "should mark the images as changed if changed" do
-        expect(@event.images_changed?).to be_falsey
+        expect(@event.images_changed?).to be_falsey if ActiveRecord::VERSION::MAJOR > 4 || ActiveRecord::VERSION::MINOR > 1
         expect(@event.remove_images).to be_nil
         @event.remove_images = "1"
         expect(@event.images_changed?).to be_truthy
@@ -1220,7 +1232,7 @@ describe CarrierWave::ActiveRecord do
 
       # FIXME ideally images_changed? and remote_images_urls_changed? would return true
       it "should mark images as changed when setting remote_images_urls" do
-        expect(@event.images_changed?).to be_falsey
+        expect(@event.images_changed?).to be_falsey if ActiveRecord::VERSION::MAJOR > 4 || ActiveRecord::VERSION::MINOR > 1
         @event.remote_images_urls = ['http://www.example.com/test.jpg']
         expect(@event.images_changed?).to be_truthy
         @event.save!
